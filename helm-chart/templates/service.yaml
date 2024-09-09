@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "botpress-service-chart.fullname" . }}
+  labels:
+    {{- include "botpress-service-chart.labels" . | nindent 4 }}
+    azure.workload.identity/use: "true"
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - protocol: TCP
+    port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.targetPort }}
+  selector:
+    {{- include "botpress-service-chart.selectorLabels" . | nindent 4 }}

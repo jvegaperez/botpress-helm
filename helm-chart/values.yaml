@@ -1,0 +1,186 @@
+# Default values for botpress-service-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+env: "dev"
+host: [services.aks.com] #ingress host or custom domain
+replicaCount: 1
+
+image:
+  repository: botpress/server #botpress docker repository you can use your own Azure container registry
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+podLabels: {
+  azure.workload.identity/use: "true"
+}
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "botpress-service"
+labels: {}
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: false
+  # Annotations to add to the service account
+  annotations: {
+   
+  }
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  clientId: 13ac52bc-0c84-4f7a-aa47-47362441d9ba
+  name: "botpress-service"
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1234
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: null
+  runAsUser: 1001
+  runAsNonRoot: false
+  privileged: false
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+environment:
+  BP_PRODUCTION: true
+  REDIS_URL: 'redis://[username]:[password]@[redis-node].[redis-aks-namespace].svc.cluster.local:6379' #your redis server url if you have one
+  CLUSTER_ENABLED: 'false'
+  BP_REDIS_SCOPE: 'botpress'
+  BPFS_STORAGE: 'database'
+  DATABASE_URL: postgres://[username]:[password]@[host]:5432/[botpress-database] # your database url connection string
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: 
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "off"
+  hosts:
+    - host: 
+      paths:
+      - path: /botpress-service
+        pathType: Prefix
+        backend:
+          service:
+            name: botpress-service
+            port:
+              number: 80
+  tls: 
+   - secretName: services-tls
+     hosts:
+       - 
+
+resources:
+  requests:
+      memory: "1Gi"
+      cpu: "150m"
+  limits:
+    memory: "3Gi"
+    cpu: "200m"
+
+livenessProbe: {}
+readinessProbe: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: [
+
+]
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: 
+  - name: bp-storage
+    mountPath: /botpress/data
+
+
+nodeSelector: {
+  tier: "[node]-user-workload" # your node selector to afinity deploy
+}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  ## @param persistence.enabled Enable persistence using PVC
+  ##
+  enabled: true
+  ## @param persistence.customStorageClass Create a custom storage class
+  ## Requires persistence.enabled: true
+  ## Requires persistence.storageClass: name
+  ## ref: https://kubernetes.io/docs/concepts/storage/storage-classes/
+  ## E.g.
+  ## provisioner: efs.csi.aws.com
+  ##   parameters:
+  ##     provisioningMode: efs-ap
+  ##     fileSystemId: fs-12345678
+  ##     directoryPerms: "700"
+  ##     gidRangeStart: "1000" # optional
+  ##     gidRangeEnd: "2000" # optional
+  ##
+  customStorageClass: {}
+  ## @param persistence.storageClass PVC Storage Class for Moodle
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  storageClass: ""
+  ## @param persistence.accessModes PVC Access Mode for Moodle
+  ## Requires persistence.enabled: true
+  ## If defined, and no customStorageClass is defined, then
+  ## PVC must be created manually before volume will be bound
+  ##
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size PVC Storage Request for Moodle
+  ##
+  size: 1Gi
+  ## @param persistence.existingClaim An Existing PVC name
+  ## Requires persistence.enabled: true
+  ## If defined, PVC must be created manually before volume will be bound
+  ##
+  existingClaim: ""
+  ## @param persistence.hostPath Host mount path for Moodle
+  ## Requires persistence.enabled: true
+  ## Requires persistence.existingClaim: nil|false
+  ## Default: nil.
+  ##
+  hostPath: ""
+  ## @param persistence.annotations Persistent Volume Claim annotations
+  ##
+  annotations: {}

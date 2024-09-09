@@ -1,0 +1,106 @@
+{{- $env := .Values.env -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "botpress-service-chart.fullname" . }}
+  labels:
+    {{- include "botpress-service-chart.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "botpress-service-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "botpress-service-chart.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "botpress-service-chart.serviceAccountName" . }}-sa{{ if ne $env ""  }}-{{ $env }}{{ end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+          env:        
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: BP_CONFIG_DATABASE_URL
+            - name: EXTERNAL_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: EXTERNAL_URL
+            - name: BP_CONFIG_HTTPSERVER_EXTERNALURL
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: BP_CONFIG_HTTPSERVER_EXTERNALURL                  
+            - name: BP_PRODUCTION
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: BP_PRODUCTION
+            - name: BPFS_STORAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: BPFS_STORAGE                  
+            - name: BP_REDIS_SCOPE
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: BP_REDIS_SCOPE 
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: REDIS_URL
+            - name: CLUSTER_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: botpress-service-environment-configmap
+                  key: CLUSTER_ENABLED                                                                                                                                                                                                         
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: bp-storage
+          persistentVolumeClaim:
+            claimName: {{ include "botpress-service-chart.fullname" . }}
+      {{- if eq $env ""}}
+      {{- with .Values.nodeSelector}}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
